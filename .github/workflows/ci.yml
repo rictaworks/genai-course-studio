@@ -16,9 +16,12 @@ jobs:
           node-version-file: .node-version
           cache: npm
           cache-dependency-path: src/web/package-lock.json
+      - name: Read repository Ruby version
+        id: ruby-version
+        run: echo "version=$(cat .ruby-version)" >> "$GITHUB_OUTPUT"
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: .ruby-version
+          ruby-version: ${{ steps.ruby-version.outputs.version }}
           bundler: 4.0.22
           working-directory: src/api
           bundler-cache: true

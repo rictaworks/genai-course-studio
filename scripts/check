@@ -7,6 +7,7 @@ run() {
   shift
   "$@" || result=1
 }
+run 'Workflow regression' bash -c 'cd src/api && bundle exec ruby ../../test/workflow_test.rb'
 run 'Web lint' npm --prefix src/web run lint
 run 'Web typecheck' npm --prefix src/web run typecheck
 run 'Web unit' npm --prefix src/web test -- --run

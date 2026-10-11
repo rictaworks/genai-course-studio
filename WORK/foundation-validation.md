@@ -61,3 +61,9 @@ Webブラウザ試験の1件は実際の開発サーバーと `/api/health` を�
 コミット前にレビュー済みstaged treeと一致することを確認するローカルhookを設置しました。ローカルmerge hookも今回のマージ禁止を守るため終了コード1にしています。これらは本環境の補助であり、GitHubの権限やbranch protectionを変更していません。
 
 Next.jsが生成した `src/web/AGENTS.md` と同梱TypeScript手順に従い、`next-env.d.ts` はignoreし、型検査を `next typegen && tsc --noEmit` にしました。変更後のtypecheck/lintも成功しています。
+
+## CI起動パスの修正
+
+初回CI run `38123856372` は `ruby/setup-ruby` がAPIの作業ディレクトリから `.ruby-version` を開き、ENOENTで停止しました。npm ci / browser / scripts/checkはskipされていました。ルートでバージョンを読み、出力値をsetup-rubyへ渡すように修正しました。Gemfileの作業ディレクトリはsrc/apiのままです。
+
+回帰テスト `test/workflow_test.rb` は実workflowの読み取りコマンドを実行して、ルートの固定版とaction入力の結線、Gemfile.lockの存在を検証します。修正前1件失敗、修正後1件7 assertions成功、APIのRuboCop規約でも違反0です。`scripts/check` に組み込みました。DB検証をskip成功に変える修正は行っていません。
