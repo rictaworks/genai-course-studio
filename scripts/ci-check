@@ -34,6 +34,8 @@ done
 [[ "$ready" == true ]]
 curl -fsS --max-time 2 http://127.0.0.1:3001/up
 scripts/check
+# Preserve the order that exposed lazy database configuration contamination.
+(cd src/api && bin/rails test --seed 3286)
 kill -0 "$worker_pid"
 kill -TERM "$worker_pid"
 wait "$worker_pid"

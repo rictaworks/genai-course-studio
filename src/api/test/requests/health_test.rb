@@ -8,6 +8,17 @@ class HealthTest < Minitest::Test
   include Rack::Test::Methods
   def app = Rails.application
 
+  def setup
+    # Resolve Rails' lazy database configuration before temporarily changing ENV
+    # or Rails.env. This creates a pool configuration, never a DB connection.
+    @database_configuration = ActiveRecord::Base.connection_db_config.configuration_hash.dup
+  end
+
+  def teardown
+    unchanged = ActiveRecord::Base.connection_db_config.configuration_hash == @database_configuration
+    assert unchanged, "Health request must not change the configured database"
+  end
+
   def test_liveness_works_without_database
     get "/up"
     assert_equal 200, last_response.status
