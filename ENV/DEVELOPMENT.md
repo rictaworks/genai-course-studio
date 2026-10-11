@@ -63,6 +63,28 @@ node --version  # v24.21.0
 npm --version   # 11.19.0
 ```
 
-Ruby 3.4.11 はこの専用環境内で構築中です。アプリの install/start コマンドと実測結果は後続 #2 の記録に追記します。#1 時点では Web/API/worker の起動完了を主張しません。
+Ruby 3.4.11 は #1 時点では構築中でした（#2 作業で構築・公式SHA-256照合が完了しました）。アプリの install/start コマンドと実測結果は後続 #2 の記録に追記します。#1 時点では Web/API/worker の起動完了を主張しません。
 
 [Next.js 10月14日セキュリティ更新予告](https://nextjs.org/blog/upcoming-nextjs-security-update-october-2026)について、確認日の10月11日時点では詳細未公表です。本番公開前には公式 advisory と修正版を再確認する必要があります。本作業では公開しません。
+
+## #2 実際の依存導入・起動手順
+
+専用環境では Node と Ruby を `/workspace/toolchains/` 以下に導入しました。Ruby は公式ソースから構築し、OS全体へ依存を追加していません。
+
+```sh
+export PATH=/workspace/toolchains/node/bin:/workspace/toolchains/ruby/bin:$PATH
+export npm_config_cache=/workspace/npm-cache
+cd /workspace/genai-course-studio/src/web
+npm ci
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+API は別ターミナルで `src/api` から `bundle install` と `bin/rails server -b 127.0.0.1 -p 3001` を使用します。正確な実行結果は [検証記録](../WORK/foundation-validation.md) に記載しています。
+
+ブラウザテストは `src/web` で `npm run test:e2e` を実行します。本環境は Playwright のブラウザ配布へのアクセスが403となったため、既存 Chromium に `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` を設定して成功しました。ネットワーク設定を変更していません。
+
+DBが提供された場合だけ、開発DBへ `bin/rails db:migrate` を実行し、別ターミナルで `bin/jobs` を起動します。テスト側は別の `TEST_DATABASE_URL` を設定し、`RAILS_ENV=test bin/rails db:migrate` の後に別ターミナルで `RAILS_ENV=test bin/jobs` を起動し、`bin/rails test` を実行します。再実行時にDB作成やresetは不要です。fixture試験の架空レコードは保持します。
+
+`DATABASE_URL` / `TEST_DATABASE_URL` は現在未提供のため、上記DB手順の実行・migration再実行・永続化・別worker成功/失敗試験は未検証です。CIもこれらを成功扱いせず、`scripts/check` のDB検査が非ゼロになります。
+
+Ruby構築とこの環境で必要だった初回Bundler取得手順は [API開発基盤](../src/api/README.md) に記録しています。Ruby archive SHA-256は公式の `5c22be44524312b3d433d68739bcc530633b1da5ef8ba0afa0a37680da17d3de` と一致しました。

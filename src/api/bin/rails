@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+require_relative "../lib/database_safety"
+cli_test = ARGV.each_with_index.any? { |arg, i| arg == "--environment=test" || (%w[-e --environment].include?(arg) && ARGV[i + 1] == "test") }
+if cli_test || ARGV.first == "test" || ARGV.first&.start_with?("test:") || ENV["RAILS_ENV"] == "test"
+  begin
+    DatabaseSafety.verify_test!(ENV["TEST_DATABASE_URL"], ENV["DATABASE_URL"])
+  rescue DatabaseSafety::Unsafe => error
+    abort error.message
+  end
+end
+APP_PATH = File.expand_path("../config/application", __dir__)
+require_relative "../config/boot"
+require "rails/commands"

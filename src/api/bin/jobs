@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+if ENV["RAILS_ENV"] == "test"
+  require_relative "../lib/database_safety"
+  begin
+    DatabaseSafety.verify_test!(ENV["TEST_DATABASE_URL"], ENV["DATABASE_URL"])
+  rescue DatabaseSafety::Unsafe => error
+    abort error.message
+  end
+end
+require_relative "../config/environment"
+require "solid_queue/cli"
+SolidQueue::Cli.start(ARGV)

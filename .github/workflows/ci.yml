@@ -1,0 +1,33 @@
+name: Foundation PR checks
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler: 4.0.22
+          working-directory: src/api
+          bundler-cache: true
+      - run: timeout 180 npm ci
+        working-directory: src/web
+      - run: timeout 120 npx playwright install --with-deps chromium
+        working-directory: src/web
+      - run: timeout 900 scripts/check
+      - name: Dependency audit
+        if: always()
+        run: timeout 120 npm audit --audit-level=high
+        working-directory: src/web

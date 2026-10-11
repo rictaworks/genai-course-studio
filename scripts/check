@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -u
+cd "$(dirname "$0")/.."
+result=0
+run() {
+  printf '\nCheck: %s\n' "$1"
+  shift
+  "$@" || result=1
+}
+run 'Web lint' npm --prefix src/web run lint
+run 'Web typecheck' npm --prefix src/web run typecheck
+run 'Web unit' npm --prefix src/web test -- --run
+run 'Web build' npm --prefix src/web run build
+run 'Web browser smoke' npm --prefix src/web run test:e2e
+run 'Web dependency audit' npm --prefix src/web audit --audit-level=high
+run 'Rails lint' bash -c 'cd src/api && bundle exec rubocop'
+run 'Rails static security' bash -c 'cd src/api && bundle exec brakeman --no-pager'
+run 'Rails dependency audit' bash -c 'cd src/api && mkdir -p tmp && bundle exec bundler-audit check --update --database tmp/ruby-advisory-db'
+run 'Rails DB-independent checks' bash -c 'cd src/api && bin/check'
+run 'Rails autoload' bash -c 'cd src/api && bin/rails zeitwerk:check'
+run 'Rails PostgreSQL integration (requires separate permitted DB)' bash -c 'cd src/api && bin/rails test'
+exit "$result"

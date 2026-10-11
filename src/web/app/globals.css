@@ -1,0 +1,13 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color:#172b35; background:#f3f6f7; }
+body { margin:0; }
+main { max-width:48rem; margin:8vh auto; padding:2rem; }
+h1 { font-size:clamp(1.8rem,5vw,2.8rem); line-height:1.3; }
+h2 { font-size:1.2rem; }
+p { line-height:1.8; }
+section { background:white; border:1px solid #bccbd1; border-radius:12px; padding:1.5rem; margin:2rem 0; }
+[role=status] { font-weight:700; }
+button { font:inherit; background:#175269; color:white; border:0; border-radius:6px; padding:.7rem 1.2rem; cursor:pointer; }
+button:disabled { opacity:.65; cursor:wait; }
+button:focus-visible { outline:3px solid #a96100; outline-offset:4px; }
+.eyebrow { color:#365867; letter-spacing:.08em; font-size:.85rem; }
+.note { color:#405762; font-size:.9rem; }

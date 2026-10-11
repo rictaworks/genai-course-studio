@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require_relative "../config/boot"
+# Explicit discovery prevents recursively invoking this runner.
+Dir[File.expand_path("../test/{unit,requests}/*_test.rb", __dir__)].sort.each { |file| require file }
