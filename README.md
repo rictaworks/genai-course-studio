@@ -32,7 +32,7 @@ bin/rails server -b 127.0.0.1 -p 3001
 
 ## DB・ワーカー・検証
 
-[ENV/DEVELOPMENT.md](ENV/DEVELOPMENT.md) の制約と [API手順](src/api/README.md) に従い、事前に許可された開発DBと別のテストDBを指定します。DBの新規作成や破壊的リセットは行いません。
+[ENV/DEVELOPMENT.md](ENV/DEVELOPMENT.md) の制約と [API手順](src/api/README.md) に従い、事前に許可された開発DBと別のテストDBを指定します。ローカルではDBの新規作成や破壊的リセットは行いません。CIのみ、許可された使い捨てPostgreSQLサービスを使用します。
 
 ```sh
 cd src/api

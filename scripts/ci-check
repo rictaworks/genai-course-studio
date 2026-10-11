@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+# Only GitHub Actions owns the disposable service. Never provision a local DB.
+if [[ "${GITHUB_ACTIONS:-}" != true ]]; then
+  echo 'This entrypoint is for the disposable GitHub Actions database only.' >&2
+  exit 1
+fi
+mkdir -p src/api/tmp
+api_pid=''
+worker_pid=''
+cleanup() {
+  if [[ -n "$worker_pid" ]]; then kill -TERM "$worker_pid" 2>/dev/null || true; wait "$worker_pid" 2>/dev/null || true; fi
+  if [[ -n "$api_pid" ]]; then kill -TERM "$api_pid" 2>/dev/null || true; wait "$api_pid" 2>/dev/null || true; fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+(
+  cd src/api
+  RAILS_ENV=test bin/rails db:migrate
+  RAILS_ENV=test bin/rails db:migrate
+)
+(cd src/api && exec env RAILS_ENV=test bin/jobs) > src/api/tmp/ci-worker.log 2>&1 &
+worker_pid=$!
+(cd src/api && exec env RAILS_ENV=test bin/rails server -b 127.0.0.1 -p 3001) > src/api/tmp/ci-api.log 2>&1 &
+api_pid=$!
+ready=false
+for attempt in {1..30}; do
+  kill -0 "$api_pid"
+  kill -0 "$worker_pid"
+  if curl -fsS --max-time 2 http://127.0.0.1:3001/health > /dev/null; then ready=true; break; fi
+  sleep 1
+done
+[[ "$ready" == true ]]
+curl -fsS --max-time 2 http://127.0.0.1:3001/up
+scripts/check
+kill -0 "$worker_pid"
+kill -TERM "$worker_pid"
+wait "$worker_pid"
+worker_pid=''
+# Both diagnostics must still respond after the separate worker has stopped.
+curl -fsS --max-time 2 http://127.0.0.1:3001/up
+curl -fsS --max-time 2 http://127.0.0.1:3001/health
+# This starts its own Next development server while the API remains alive.
+npm --prefix src/web run test:e2e

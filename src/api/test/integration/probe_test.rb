@@ -4,6 +4,49 @@ require "securerandom"
 class ProbeTest < ActiveSupport::TestCase
   self.use_transactional_tests = false
 
+  setup do
+    assert_instance_of ActiveJob::QueueAdapters::SolidQueueAdapter, ProbeJob.queue_adapter
+    assert_equal "postgresql", ActiveRecord::Base.connection_db_config.adapter
+  end
+
+  test "migration replay preserves an existing fixture and applied versions" do
+    probe = DiagnosticProbe.create!(key: "fixture-#{SecureRandom.uuid}", outcome: "success")
+    snapshot = probe.reload.attributes
+    context = ActiveRecord::Base.connection_pool.migration_context
+    versions = context.get_all_versions
+    2.times { context.migrate }
+    assert_equal versions, context.get_all_versions
+    assert_equal snapshot, probe.reload.attributes
+  end
+
+  test "a rolled back enqueue persists neither fixture nor queue job" do
+    key = "fixture-#{SecureRandom.uuid}"
+    job_id = nil
+    DiagnosticProbe.transaction do
+      probe = EnqueueProbe.call(key: key, outcome: "success")
+      job_id = probe.active_job_id
+      assert SolidQueue::Job.exists?(active_job_id: job_id)
+      raise ActiveRecord::Rollback
+    end
+    assert job_id
+    refute DiagnosticProbe.exists?(key: key)
+    refute SolidQueue::Job.exists?(active_job_id: job_id)
+  end
+
+  test "committed fixture persists across independent PostgreSQL connections" do
+    probe = DiagnosticProbe.create!(key: "fixture-#{SecureRandom.uuid}", outcome: "success")
+    ActiveRecord::Base.connection_pool.with_connection do |main_connection|
+      main_pid = main_connection.select_value("SELECT pg_backend_pid()")
+      observed = Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do |connection|
+          [ connection.select_value("SELECT pg_backend_pid()"), DiagnosticProbe.find(probe.id).attributes ]
+        end
+      end.value
+      refute_equal main_pid, observed.first
+      assert_equal probe.reload.attributes, observed.last
+    end
+  end
+
   test "durable duplicate suppression and separate worker success and failure" do
     %w[success failure].each do |outcome|
       key = "fixture-#{SecureRandom.uuid}"

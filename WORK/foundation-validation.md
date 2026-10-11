@@ -71,3 +71,11 @@ Next.jsが生成した `src/web/AGENTS.md` と同梱TypeScript手順に従い、
 次のCI run `38124103223` ではRuby setup、npm ci、Chromium準備、Web/ブラウザ検査、APIテスト、監査が成功しました。Zeitwerkで別の起動順序不具合（Bundler前にDB安全チェックがdefault uri 1.0.4を読み、lockの1.1.2と衝突）が判明しました。`bin/rails` と `bin/jobs` は最初にconfig/bootを読み、その後でDB安全チェックを実行するよう修正しました。Rails環境やDB接続より前の拒否は維持します。
 
 `test/api_boot_test.rb` は実entrypointの子プロセスをTracePointで観測します。Bundler初期化順と、DB未設定の拒否を確認し、REDからGREEN（1件10 assertions）になりました。Zeitwerk、API9件27 assertions、変更ファイルlintも成功しました。
+
+## CI限定PostgreSQLの検証計画
+
+ユーザーからGitHub Actions内の独立・使い捨てPostgreSQLが許可されました。最新DC.mdはCodespaces開発コンテナの規則であり、このCI構成を禁止していません。以前CIまで既存接続先待ちにした解釈をENV/DEVELOPMENT.mdとTASKS/issue-1.mdで訂正しました。ローカルDBは未提供のままです。
+
+workflowはPostgreSQL18.6をloopbackにのみ公開し、永続volume・CI secret・本番資格情報を使いません。新しい `scripts/ci-check` でmigration再実行、API/別worker起動、全検査、worker停止後のHTTP/ブラウザを確認します。実DB検査はCI結果が出るまで未実施です。
+
+workflow安全条件の回帰はREDを確認後、GREEN（2件16 assertions）になりました。シェル構文と新規Rubyテストのlintも成功し、Actions外でCI入口が拒否することを確認しました。追加DB試験はmigration後の既存データ保持、外側transactionのrollback、異なるPostgreSQL接続からの読取りを含みます。

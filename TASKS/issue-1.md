@@ -6,4 +6,4 @@
 - `rictaworks/context` の `8f1ed19bd075c89a3f445141ba8123591d895b92` にある `setup/Claude/Manager.md`, `ClaudeCode.md`, `CLAUDE.md`, `WF.md`, `DC.md`, `TEST-HARNESS-SAFETY.md`, `docs/*`, `QC10.md`, `OWASP10.md` を確認しました。
 - 今回の明示指示を優先し、マージ・デプロイ・外部DB作成・SQLite代替・実OAuth・AI送信は行いません。
 - executor の skills カタログは空、`/workspace/.agents` に skills はありません。通常レビュー・セキュリティレビューは記載済みチェックリストをサブエージェントで実施します。未提供スキルの実行済みとは報告しません。
-- `DATABASE_URL` と `TEST_DATABASE_URL` は未提供です。実DB・永続キュー試験はブロックされています。環境変数の値は出力していません。
+- ローカルの `DATABASE_URL` と `TEST_DATABASE_URL` は未提供です。ローカル実DB検証は未実施です。GitHub Actions限定の独立した使い捨てPostgreSQLは今回の明示許可に含まれ、CIの実DB・永続キュー検証に使用します。環境変数の値は出力していません。
