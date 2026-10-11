@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+require_relative "../config/boot"
 require_relative "../lib/database_safety"
 cli_test = ARGV.each_with_index.any? { |arg, i| arg == "--environment=test" || (%w[-e --environment].include?(arg) && ARGV[i + 1] == "test") }
 if cli_test || ARGV.first == "test" || ARGV.first&.start_with?("test:") || ENV["RAILS_ENV"] == "test"
@@ -9,5 +10,4 @@ if cli_test || ARGV.first == "test" || ARGV.first&.start_with?("test:") || ENV["
   end
 end
 APP_PATH = File.expand_path("../config/application", __dir__)
-require_relative "../config/boot"
 require "rails/commands"

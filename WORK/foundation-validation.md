@@ -67,3 +67,7 @@ Next.jsが生成した `src/web/AGENTS.md` と同梱TypeScript手順に従い、
 初回CI run `38123856372` は `ruby/setup-ruby` がAPIの作業ディレクトリから `.ruby-version` を開き、ENOENTで停止しました。npm ci / browser / scripts/checkはskipされていました。ルートでバージョンを読み、出力値をsetup-rubyへ渡すように修正しました。Gemfileの作業ディレクトリはsrc/apiのままです。
 
 回帰テスト `test/workflow_test.rb` は実workflowの読み取りコマンドを実行して、ルートの固定版とaction入力の結線、Gemfile.lockの存在を検証します。修正前1件失敗、修正後1件7 assertions成功、APIのRuboCop規約でも違反0です。`scripts/check` に組み込みました。DB検証をskip成功に変える修正は行っていません。
+
+次のCI run `38124103223` ではRuby setup、npm ci、Chromium準備、Web/ブラウザ検査、APIテスト、監査が成功しました。Zeitwerkで別の起動順序不具合（Bundler前にDB安全チェックがdefault uri 1.0.4を読み、lockの1.1.2と衝突）が判明しました。`bin/rails` と `bin/jobs` は最初にconfig/bootを読み、その後でDB安全チェックを実行するよう修正しました。Rails環境やDB接続より前の拒否は維持します。
+
+`test/api_boot_test.rb` は実entrypointの子プロセスをTracePointで観測します。Bundler初期化順と、DB未設定の拒否を確認し、REDからGREEN（1件10 assertions）になりました。Zeitwerk、API9件27 assertions、変更ファイルlintも成功しました。
