@@ -1,0 +1,53 @@
+name: Foundation PR checks
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  independent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_DB: studio_ci_test
+          POSTGRES_USER: studio_ci
+          POSTGRES_PASSWORD: disposable_ci_only
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U studio_ci -d studio_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throwaway values used only by this job's loopback-bound service.
+      TEST_DATABASE_URL: postgresql://studio_ci:disposable_ci_only@127.0.0.1:5432/studio_ci_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - name: Read repository Ruby version
+        id: ruby-version
+        run: echo "version=$(cat .ruby-version)" >> "$GITHUB_OUTPUT"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ steps.ruby-version.outputs.version }}
+          bundler: 4.0.22
+          working-directory: src/api
+          bundler-cache: true
+      - run: timeout 180 npm ci
+        working-directory: src/web
+      - run: timeout 120 npx playwright install --with-deps chromium
+        working-directory: src/web
+      - run: timeout 900 scripts/ci-check
+      - name: Dependency audit
+        if: always()
+        run: timeout 120 npm audit --audit-level=high
+        working-directory: src/web

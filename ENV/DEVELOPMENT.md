@@ -32,7 +32,7 @@ Node.js はこの専用環境の `/workspace/toolchains/node` に配置し、公
 
 `rictaworks/context/setup/Claude/DC.md` に従い、開発コンテナへ DB / Redis を同居させず、Docker デーモン・DinD・DooD を追加しません。本作業では外部 DB の新規作成、有料サービス、本番資格情報、OAuth 権限、ネットワーク設定変更を行いません。
 
-既存の許可済み開発 PostgreSQL に接続できる場合のみ、環境変数で接続先を渡します。資格情報や実 URL は文書・ログ・コミットへ保存しません。開発用とテスト用の DB は分離します。DB が提供されていない場合、DB migration・永続化・キュー実行の統合テストは阻害要因として明記します。モックによるテストを DB 起動成功として扱いません。
+ローカル開発では、既存の許可済み PostgreSQL に環境変数で接続します。資格情報や実 URL は文書・ログ・コミットへ保存しません。開発用とテスト用の DB は分離します。ローカルDB が提供されていない場合、その環境のDB migration・永続化・キュー実行は未検証と明記します。モックによるテストを DB 起動成功として扱いません。
 
 外部 AI、ストレージ、認証は無効アダプターを使用します。実サービスへの要求を開始するキーは設定しません。
 
@@ -63,6 +63,38 @@ node --version  # v24.21.0
 npm --version   # 11.19.0
 ```
 
-Ruby 3.4.11 はこの専用環境内で構築中です。アプリの install/start コマンドと実測結果は後続 #2 の記録に追記します。#1 時点では Web/API/worker の起動完了を主張しません。
+Ruby 3.4.11 は #1 時点では構築中でした（#2 作業で構築・公式SHA-256照合が完了しました）。アプリの install/start コマンドと実測結果は後続 #2 の記録に追記します。#1 時点では Web/API/worker の起動完了を主張しません。
 
 [Next.js 10月14日セキュリティ更新予告](https://nextjs.org/blog/upcoming-nextjs-security-update-october-2026)について、確認日の10月11日時点では詳細未公表です。本番公開前には公式 advisory と修正版を再確認する必要があります。本作業では公開しません。
+
+## #2 実際の依存導入・起動手順
+
+専用環境では Node と Ruby を `/workspace/toolchains/` 以下に導入しました。Ruby は公式ソースから構築し、OS全体へ依存を追加していません。
+
+```sh
+export PATH=/workspace/toolchains/node/bin:/workspace/toolchains/ruby/bin:$PATH
+export npm_config_cache=/workspace/npm-cache
+cd /workspace/genai-course-studio/src/web
+npm ci
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+API は別ターミナルで `src/api` から `bundle install` と `bin/rails server -b 127.0.0.1 -p 3001` を使用します。正確な実行結果は [検証記録](../WORK/foundation-validation.md) に記載しています。
+
+ブラウザテストは `src/web` で `npm run test:e2e` を実行します。本環境は Playwright のブラウザ配布へのアクセスが403となったため、既存 Chromium に `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` を設定して成功しました。ネットワーク設定を変更していません。
+
+DBが提供された場合だけ、開発DBへ `bin/rails db:migrate` を実行し、別ターミナルで `bin/jobs` を起動します。テスト側は別の `TEST_DATABASE_URL` を設定し、`RAILS_ENV=test bin/rails db:migrate` の後に別ターミナルで `RAILS_ENV=test bin/jobs` を起動し、`bin/rails test` を実行します。再実行時にDB作成やresetは不要です。fixture試験の架空レコードは保持します。
+
+ローカルの `DATABASE_URL` / `TEST_DATABASE_URL` は現在未提供です。ローカル実DB起動は未検証のままで、`scripts/check` はDB未提供なら非ゼロになります。CIの実DB検証は以下の独立した一時環境で行います。
+
+Ruby構築とこの環境で必要だった初回Bundler取得手順は [API開発基盤](../src/api/README.md) に記録しています。Ruby archive SHA-256は公式の `5c22be44524312b3d433d68739bcc530633b1da5ef8ba0afa0a37680da17d3de` と一致しました。
+
+## GitHub Actions限定の一時DB
+
+追加確認により、DC.mdの禁止はCodespaces開発コンテナへのDB同居を対象とし、独立した使い捨てCIサービスを禁止するものではありません。以前の文書でCIまで「既存接続先の提供待ち」とした部分は過度に狭い解釈でした。今回明示的に許可された範囲は、外部アカウント・課金・本番データを使わないGitHub Actions内のPostgreSQLです。
+
+PR workflowは `postgres:18.6` をサービスとして起動し、`127.0.0.1:5432` だけへポートを割り当てます。DB名・ユーザー・パスワードはCI専用の使い捨て値で、secretや永続ボリュームを作成しません。GitHubがジョブ終了時にサービスを破棄します。ローカル環境へDockerやDBは導入しません。
+
+`scripts/ci-check` はActions内だけで動作します。テストDBのmigrationを2回実行し、別プロセスでworker/APIを起動して `scripts/check` を実行します。worker停止後にも生存・準備状態のHTTP確認とブラウザ検査を行います。追加の統合試験は保存、同時重複投入、rollback、migration後のデータ保持、別workerでの成功/失敗結果を検証します。各結果はCIログで確認し、ローカル開発DBの成功とは扱いません。
+
+CI実測: [run 38124723073](https://github.com/rictaworks/genai-course-studio/actions/runs/38124723073) でmigration再実行・永続化・別workerの成功/失敗・worker停止後のHTTP/ブラウザを含め全検査が成功しました。ローカルDBは未提供のままです。
