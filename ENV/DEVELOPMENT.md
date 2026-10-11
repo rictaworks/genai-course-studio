@@ -96,3 +96,5 @@ Ruby構築とこの環境で必要だった初回Bundler取得手順は [API開�
 PR workflowは `postgres:18.6` をサービスとして起動し、`127.0.0.1:5432` だけへポートを割り当てます。DB名・ユーザー・パスワードはCI専用の使い捨て値で、secretや永続ボリュームを作成しません。GitHubがジョブ終了時にサービスを破棄します。ローカル環境へDockerやDBは導入しません。
 
 `scripts/ci-check` はActions内だけで動作します。テストDBのmigrationを2回実行し、別プロセスでworker/APIを起動して `scripts/check` を実行します。worker停止後にも生存・準備状態のHTTP確認とブラウザ検査を行います。追加の統合試験は保存、同時重複投入、rollback、migration後のデータ保持、別workerでの成功/失敗結果を検証します。各結果はCIログで確認し、ローカル開発DBの成功とは扱いません。
+
+CI実測: [run 38124723073](https://github.com/rictaworks/genai-course-studio/actions/runs/38124723073) でmigration再実行・永続化・別workerの成功/失敗・worker停止後のHTTP/ブラウザを含め全検査が成功しました。ローカルDBは未提供のままです。

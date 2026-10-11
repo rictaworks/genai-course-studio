@@ -1,6 +1,6 @@
 # 開発基盤の検証記録
 
-2026年10月11日（JST）。#1 / #2 の draft 向け記録です。全起動成功・全受入条件完了を意味しません。
+2026年10月11日（JST）。#1 / #2 の draft 向け記録です。CIの一時PostgreSQLで実DB検証まで成功しました。ローカル開発DBの起動成功や製品全体の完成を意味しません。
 
 ## 順序と境界
 
@@ -23,9 +23,9 @@
 | Brakeman 8.1.0 | warning/error 0件です。 |
 | Bundler audit | 脆弱性0件、advisory DB `a6847b0651a702488f5844081e848dd1ec9dbf1d` です。 |
 | 実HTTP | Web200、Rails /up200、Rails readiness503、Web proxy503、fixture403です。 |
-| `scripts/check` 最終実行 | DB検査以外は成功、DB URL未提供の拒否で終了コード1です。 |
-| PostgreSQL migration・再実行 | DB未提供のため未実施です。 |
-| PostgreSQL永続化・重複投入・別worker成功/失敗 | DB未提供のため未実施です。 |
+| `scripts/check` | ローカルではDB未提供の拒否で1です。CIでは全検査成功・終了コード0です。 |
+| PostgreSQL migration・再実行 | CIの一時PostgreSQL18.6で成功しました。ローカルは未実施です。 |
+| PostgreSQL永続化・重複投入・別worker成功/失敗 | CIで成功しました。Rails全13件57 assertionsです。 |
 
 Webブラウザ試験の1件は実際の開発サーバーと `/api/health` を使います。API未起動とAPI起動済み/DBなしの両方で実行済みです。他の3件はAPI切断・DB未設定・DB準備済みの表示を明示的にシミュレーションしたものです。DB接続成功の証拠にはしません。Chromium配布の取得は403だったため、既存の `/usr/bin/chromium` を使用しました。
 
@@ -50,7 +50,7 @@ Webブラウザ試験の1件は実際の開発サーバーと `/api/health` を�
 
 ## 阻害要因
 
-許可済み `DATABASE_URL` と別の `TEST_DATABASE_URL` が未提供です。DBやworkerを代替せず、DB検査は非ゼロで拒否します。CIもDBがない状態を全成功にはしません。Next.jsは10月14日の公式セキュリティ更新予告があるため、本番公開前の再確認が必要です。今回マージ・公開・実OAuth・AI送信は行いません。
+ローカルの許可済み `DATABASE_URL` と別の `TEST_DATABASE_URL` は未提供です。ローカルDB検査は非ゼロで拒否します。CIは許可された独立した使い捨てPostgreSQLで検証済みです。Next.jsは10月14日の公式セキュリティ更新予告があるため、本番公開前の再確認が必要です。今回マージ・公開・実OAuth・AI送信は行いません。
 
 ## 実行中に修正した検査環境の問題
 
@@ -79,3 +79,18 @@ Next.jsが生成した `src/web/AGENTS.md` と同梱TypeScript手順に従い、
 workflowはPostgreSQL18.6をloopbackにのみ公開し、永続volume・CI secret・本番資格情報を使いません。新しい `scripts/ci-check` でmigration再実行、API/別worker起動、全検査、worker停止後のHTTP/ブラウザを確認します。実DB検査はCI結果が出るまで未実施です。
 
 workflow安全条件の回帰はREDを確認後、GREEN（2件16 assertions）になりました。シェル構文と新規Rubyテストのlintも成功し、Actions外でCI入口が拒否することを確認しました。追加DB試験はmigration後の既存データ保持、外側transactionのrollback、異なるPostgreSQL接続からの読取りを含みます。
+
+## 一時PostgreSQLの実測結果
+
+[CI run 38124723073](https://github.com/rictaworks/genai-course-studio/actions/runs/38124723073) は commit `3e165ff061aa6101184314e4bfae34f13f904448` で completed / success です。終了とログを確認しました。
+
+- PostgreSQL18.6のサービス初期化成功です。ホスト側ポートは `127.0.0.1:5432` にのみbindされました。
+- migration初回・再実行、既存fixtureを保持したmigration再実行が成功しました。
+- Rails全13件57 assertionsが成功しました。実PostgreSQL/実Solid Queue adapterを明示確認した4件の統合試験を含みます。
+- 異なるDB接続での永続化読取り、同時投入の重複抑止、外側transactionのrollback、別worker PIDでの成功/失敗、Solid Queue失敗レコード保持を検証しました。
+- 回帰3件26 assertions、Web単体6件、worker稼働中のブラウザ4件が成功しました。
+- workerを正常停止した後もAPI生存/DB準備状態が200で、ブラウザ4件が再度成功しました。
+- lint/typecheck/build/zeitwerk、Brakeman、npm/Bundler監査は成功し、脆弱性・warningの検出は0件です。
+- CIのサービス停止・後処理も成功しました。ローカルDBの導入・起動、外部DB、実資格情報、マージ、デプロイは行っていません。
+
+以前の「DB未提供でCI失敗」の記録は、その時点の事実として上記に残しています。現在のCI状態はこの成功記録で更新します。ローカル開発環境のDB未提供は別の状態として維持します。
